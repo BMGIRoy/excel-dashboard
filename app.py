@@ -33,33 +33,14 @@ if uploaded_file is not None:
         else:
             st.success("File uploaded successfully! Found both required sheets.")
             
-            # Read the sheets with specified columns and use the first row as headers
-            # For Contracts sheet, columns A to O (0 to 14)
+            # Read the sheets with specified columns
+            # Important: Set header=0 to ensure column names are read correctly
             contracts_df = pd.read_excel(excel_file, sheet_name="Contracts", usecols=range(15), header=0)
-            
-            # For BillBook sheet, columns CM to CX (90 to 101)
             billbook_df = pd.read_excel(excel_file, sheet_name="BillBook", usecols=range(90, 102), header=0)
             
             # Display column names for debugging
             st.write("Contracts sheet columns:", contracts_df.columns.tolist())
             st.write("BillBook sheet columns:", billbook_df.columns.tolist())
-            
-            # Define column mappings based on user information
-            # For Contracts sheet
-            business_head_col = "BH"  # Column D is labeled "BH"
-            client_name_col = "Client Name" if "Client Name" in contracts_df.columns else "A"
-            po_balance_col = "PO Balance" if "PO Balance" in contracts_df.columns else "O"
-            po_value_col = "Total PO Value" if "Total PO Value" in contracts_df.columns else "I"
-            
-            # For BillBook sheet
-            bh_col = "Business Head"  # Column CV is labeled "Business Head"
-            consultant_col = "Consultant Name" if "Consultant Name" in billbook_df.columns else "CN"
-            client_col = "Client Name" if "Client Name" in billbook_df.columns else "CO"
-            billed_amount_col = "Billed Amount" if "Billed Amount" in billbook_df.columns else "CQ"
-            deductions_col = "Deductions" if "Deductions" in billbook_df.columns else "CR"
-            net_amount_col = "Net Amount" if "Net Amount" in billbook_df.columns else "CS"
-            month_col = "month" if "month" in billbook_df.columns else "CU"
-            quarter_col = "Quarter" if "Quarter" in billbook_df.columns else "CT"
             
             # Create tabs for different analyses
             tab1, tab2 = st.tabs(["Contracts Analysis", "BillBook Analysis"])
@@ -68,97 +49,164 @@ if uploaded_file is not None:
                 st.header("Contracts Analysis")
                 
                 try:
-                    # Business Head filter for Contracts
-                    business_heads_contracts = contracts_df[business_head_col].unique().tolist()
-                    selected_bh_contracts = st.selectbox(
-                        f"Select Business Head",
-                        ["All"] + business_heads_contracts
-                    )
+                    # Find the actual column names based on provided information
+                    business_head_col = "BH"
+                    client_name_col = None
+                    po_balance_col = "Fixed Balance"  # User specified this is the PO Balance column
+                    po_value_col = None
                     
-                    # Filter data based on selection
-                    if selected_bh_contracts != "All":
-                        filtered_contracts_df = contracts_df[contracts_df[business_head_col] == selected_bh_contracts]
+                    # Check if columns exist
+                    if business_head_col not in contracts_df.columns:
+                        st.error(f"Column '{business_head_col}' not found in Contracts sheet")
+                        st.write("Available columns:", contracts_df.columns.tolist())
                     else:
-                        filtered_contracts_df = contracts_df
-                    
-                    # Create two columns for charts
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        # PO Balance by Client
-                        po_balance_by_client = filtered_contracts_df.groupby(client_name_col)[po_balance_col].sum().reset_index()
-                        po_balance_by_client = po_balance_by_client.sort_values(po_balance_col, ascending=False)
+                        # For other columns, try to find them by position if not specified
+                        if client_name_col is None:
+                            client_name_col = contracts_df.columns[0]  # Column A
+                        if po_value_col is None:
+                            po_value_col = contracts_df.columns[8]  # Column I
                         
-                        fig1 = px.bar(
-                            po_balance_by_client,
-                            x=client_name_col,
-                            y=po_balance_col,
-                            title="PO Balance by Client",
-                            color_discrete_sequence=["#3498db"]
+                        # Display which columns we're using
+                        st.write(f"Using '{business_head_col}' for Business Head")
+                        st.write(f"Using '{client_name_col}' for Client Name")
+                        st.write(f"Using '{po_value_col}' for PO Value")
+                        st.write(f"Using '{po_balance_col}' for PO Balance")
+                        
+                        # Business Head filter for Contracts
+                        business_heads_contracts = contracts_df[business_head_col].dropna().unique().tolist()
+                        selected_bh_contracts = st.selectbox(
+                            "Select Business Head",
+                            ["All"] + business_heads_contracts
                         )
-                        fig1.update_layout(xaxis_title="Client", yaxis_title="PO Balance")
-                        st.plotly_chart(fig1, use_container_width=True)
-                    
-                    with col2:
-                        # PO Balance by Business Head
-                        if selected_bh_contracts == "All":
-                            po_balance_by_bh = contracts_df.groupby(business_head_col)[po_balance_col].sum().reset_index()
-                            po_balance_by_bh = po_balance_by_bh.sort_values(po_balance_col, ascending=False)
+                        
+                        # Filter data based on selection
+                        if selected_bh_contracts != "All":
+                            filtered_contracts_df = contracts_df[contracts_df[business_head_col] == selected_bh_contracts]
+                        else:
+                            filtered_contracts_df = contracts_df
+                        
+                        # Create two columns for charts
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            # PO Balance by Client
+                            po_balance_by_client = filtered_contracts_df.groupby(client_name_col)[po_balance_col].sum().reset_index()
+                            po_balance_by_client = po_balance_by_client.sort_values(po_balance_col, ascending=False)
                             
-                            fig2 = px.bar(
-                                po_balance_by_bh,
-                                x=business_head_col,
+                            fig1 = px.bar(
+                                po_balance_by_client,
+                                x=client_name_col,
                                 y=po_balance_col,
-                                title="PO Balance by Business Head",
-                                color_discrete_sequence=["#2ecc71"]
+                                title="PO Balance by Client",
+                                color_discrete_sequence=["#3498db"]
                             )
-                            fig2.update_layout(xaxis_title="Business Head", yaxis_title="PO Balance")
-                            st.plotly_chart(fig2, use_container_width=True)
-                        else:
-                            # Show Total PO Value vs PO Balance for selected Business Head
-                            st.subheader(f"Total PO Value vs PO Balance for {selected_bh_contracts}")
+                            fig1.update_layout(xaxis_title="Client", yaxis_title="PO Balance")
+                            st.plotly_chart(fig1, use_container_width=True)
+                        
+                        with col2:
+                            # PO Balance by Business Head
+                            if selected_bh_contracts == "All":
+                                po_balance_by_bh = contracts_df.groupby(business_head_col)[po_balance_col].sum().reset_index()
+                                po_balance_by_bh = po_balance_by_bh.sort_values(po_balance_col, ascending=False)
+                                
+                                fig2 = px.bar(
+                                    po_balance_by_bh,
+                                    x=business_head_col,
+                                    y=po_balance_col,
+                                    title="PO Balance by Business Head",
+                                    color_discrete_sequence=["#2ecc71"]
+                                )
+                                fig2.update_layout(xaxis_title="Business Head", yaxis_title="PO Balance")
+                                st.plotly_chart(fig2, use_container_width=True)
+                            else:
+                                # Show Total PO Value vs PO Balance for selected Business Head
+                                st.subheader(f"Total PO Value vs PO Balance for {selected_bh_contracts}")
+                                total_po_value = filtered_contracts_df[po_value_col].sum()
+                                total_po_balance = filtered_contracts_df[po_balance_col].sum()
+                                
+                                fig2 = go.Figure()
+                                fig2.add_trace(go.Bar(
+                                    x=["Total PO Value", "PO Balance"],
+                                    y=[total_po_value, total_po_balance],
+                                    marker_color=["#2ecc71", "#e74c3c"]
+                                ))
+                                st.plotly_chart(fig2, use_container_width=True)
+                        
+                        # Summary metrics
+                        st.subheader("Summary Metrics")
+                        metric1, metric2, metric3 = st.columns(3)
+                        
+                        with metric1:
                             total_po_value = filtered_contracts_df[po_value_col].sum()
+                            st.metric("Total PO Value", f"${total_po_value:,.2f}")
+                        
+                        with metric2:
                             total_po_balance = filtered_contracts_df[po_balance_col].sum()
-                            
-                            fig2 = go.Figure()
-                            fig2.add_trace(go.Bar(
-                                x=["Total PO Value", "PO Balance"],
-                                y=[total_po_value, total_po_balance],
-                                marker_color=["#2ecc71", "#e74c3c"]
-                            ))
-                            st.plotly_chart(fig2, use_container_width=True)
-                    
-                    # Summary metrics
-                    st.subheader("Summary Metrics")
-                    metric1, metric2, metric3 = st.columns(3)
-                    
-                    with metric1:
-                        total_po_value = filtered_contracts_df[po_value_col].sum()
-                        st.metric("Total PO Value", f"${total_po_value:,.2f}")
-                    
-                    with metric2:
-                        total_po_balance = filtered_contracts_df[po_balance_col].sum()
-                        st.metric("Total PO Balance", f"${total_po_balance:,.2f}")
-                    
-                    with metric3:
-                        if total_po_value > 0:
-                            balance_ratio = (total_po_balance / total_po_value) * 100
-                            st.metric("Balance to Value Ratio", f"{balance_ratio:.2f}%")
-                        else:
-                            st.metric("Balance to Value Ratio", "N/A")
+                            st.metric("PO Balance", f"${total_po_balance:,.2f}")
+                        
+                        with metric3:
+                            if total_po_value > 0:
+                                balance_ratio = (total_po_balance / total_po_value) * 100
+                                st.metric("Balance to Value Ratio", f"{balance_ratio:.2f}%")
+                            else:
+                                st.metric("Balance to Value Ratio", "N/A")
+                
                 except Exception as e:
                     st.error(f"Error in Contracts Analysis: {e}")
                     st.write("Please check your Excel file format and column names.")
+                    st.write("First few rows of Contracts sheet:")
+                    st.write(contracts_df.head())
             
             with tab2:
                 st.header("BillBook Analysis")
                 
                 try:
+                    # Identify column names in BillBook sheet
+                    bh_col = "Business Head"
+                    consultant_col = None  # Will look for "Consultant Name" or use position
+                    billed_amount_col = None  # Will look for "Billed Amount" or use position
+                    month_col = "month"  # User specified this column name
+                    quarter_col = None  # Will look for "Quarter" or use position
+                    deductions_col = None  # Will look for "Deductions" or use position
+                    net_amount_col = None  # Will look for "Net Amount" or use position
+                    
+                    # Find columns if not specified
+                    for col in billbook_df.columns:
+                        if "consultant" in col.lower():
+                            consultant_col = col
+                        elif "billed" in col.lower():
+                            billed_amount_col = col
+                        elif "quarter" in col.lower():
+                            quarter_col = col
+                        elif "deduction" in col.lower():
+                            deductions_col = col
+                        elif "net" in col.lower():
+                            net_amount_col = col
+                    
+                    # If still not found, use positions
+                    if consultant_col is None:
+                        consultant_col = billbook_df.columns[1]  # CN is typically second column in selected range
+                    if billed_amount_col is None:
+                        billed_amount_col = billbook_df.columns[4]  # CQ is typically fifth column in selected range
+                    if quarter_col is None:
+                        quarter_col = billbook_df.columns[7]  # CT is typically eighth column in selected range
+                    if deductions_col is None:
+                        deductions_col = billbook_df.columns[5]  # CR is typically sixth column in selected range
+                    if net_amount_col is None:
+                        net_amount_col = billbook_df.columns[6]  # CS is typically seventh column in selected range
+                    
+                    # Display which columns we're using
+                    st.write(f"Using '{consultant_col}' for Consultant")
+                    st.write(f"Using '{billed_amount_col}' for Billed Amount")
+                    st.write(f"Using '{month_col}' for Month")
+                    st.write(f"Using '{quarter_col}' for Quarter")
+                    st.write(f"Using '{bh_col}' for Business Head")
+                    
                     # Time period selector
                     time_period = st.radio("Select Time Period", ["Monthly", "Quarterly"], horizontal=True)
                     
                     # Business Head filter for BillBook
-                    business_heads_billbook = billbook_df[bh_col].unique().tolist()
+                    business_heads_billbook = billbook_df[bh_col].dropna().unique().tolist()
                     selected_bh_billbook = st.selectbox(
                         "Select Business Head (BillBook)",
                         ["All"] + business_heads_billbook
@@ -227,9 +275,12 @@ if uploaded_file is not None:
                     with metric3:
                         total_net = filtered_billbook_df[net_amount_col].sum()
                         st.metric("Total Net Amount", f"${total_net:,.2f}")
+                
                 except Exception as e:
                     st.error(f"Error in BillBook Analysis: {e}")
                     st.write("Please check your Excel file format and column names.")
+                    st.write("First few rows of BillBook sheet:")
+                    st.write(billbook_df.head())
     
     except Exception as e:
         st.error(f"Error processing the file: {e}")
@@ -248,7 +299,7 @@ else:
     - **C**: PO No.
     - **D**: BH (Business Head)
     - **I**: Total PO Value
-    - **O**: PO Balance
+    - **O**: Fixed Balance (PO Balance)
     
     ### BillBook Sheet (Columns CM to CX):
     - **CM**: Date
@@ -259,7 +310,7 @@ else:
     - **CR**: Deductions
     - **CS**: Net Amount
     - **CT**: Quarter
-    - **CU**: Month
+    - **CU**: month
     - **CV**: Business Head
     - **CW**: Team Size
     """)
