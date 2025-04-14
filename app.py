@@ -100,7 +100,13 @@ if uploaded_file is not None:
                                 title="PO Balance by Client",
                                 color_discrete_sequence=["#3498db"]
                             )
-                            fig1.update_layout(xaxis_title="Client", yaxis_title="PO Balance")
+                            fig1.update_layout(
+                                xaxis_title="Client", 
+                                yaxis_title="PO Balance",
+                                yaxis=dict(
+                                    tickprefix="₹"
+                                )
+                            )
                             st.plotly_chart(fig1, use_container_width=True)
                         
                         with col2:
@@ -116,7 +122,13 @@ if uploaded_file is not None:
                                     title="PO Balance by Business Head",
                                     color_discrete_sequence=["#2ecc71"]
                                 )
-                                fig2.update_layout(xaxis_title="Business Head", yaxis_title="PO Balance")
+                                fig2.update_layout(
+                                    xaxis_title="Business Head", 
+                                    yaxis_title="PO Balance",
+                                    yaxis=dict(
+                                        tickprefix="₹"
+                                    )
+                                )
                                 st.plotly_chart(fig2, use_container_width=True)
                             else:
                                 # Show Total PO Value vs PO Balance for selected Business Head
@@ -130,6 +142,11 @@ if uploaded_file is not None:
                                     y=[total_po_value, total_po_balance],
                                     marker_color=["#2ecc71", "#e74c3c"]
                                 ))
+                                fig2.update_layout(
+                                    yaxis=dict(
+                                        tickprefix="₹"
+                                    )
+                                )
                                 st.plotly_chart(fig2, use_container_width=True)
                         
                         # Summary metrics
@@ -138,11 +155,11 @@ if uploaded_file is not None:
                         
                         with metric1:
                             total_po_value = filtered_contracts_df[po_value_col].sum()
-                            st.metric("Total PO Value", f"${total_po_value:,.2f}")
+                            st.metric("Total PO Value", f"₹{total_po_value:,.2f}")
                         
                         with metric2:
                             total_po_balance = filtered_contracts_df[po_balance_col].sum()
-                            st.metric("PO Balance", f"${total_po_balance:,.2f}")
+                            st.metric("PO Balance", f"₹{total_po_balance:,.2f}")
                         
                         with metric3:
                             if total_po_value > 0:
@@ -165,22 +182,22 @@ if uploaded_file is not None:
                     bh_col = "Business Head"
                     consultant_col = None  # Will look for "Consultant Name" or use position
                     billed_amount_col = None  # Will look for "Billed Amount" or use position
-                    month_col = "month"  # User specified this column name
+                    month_col = "Month M"  # Updated as per user clarification
                     quarter_col = None  # Will look for "Quarter" or use position
                     deductions_col = None  # Will look for "Deductions" or use position
                     net_amount_col = None  # Will look for "Net Amount" or use position
                     
                     # Find columns if not specified
                     for col in billbook_df.columns:
-                        if "consultant" in col.lower():
+                        if "consultant" in str(col).lower():
                             consultant_col = col
-                        elif "billed" in col.lower():
+                        elif "billed" in str(col).lower():
                             billed_amount_col = col
-                        elif "quarter" in col.lower():
+                        elif "quarter" in str(col).lower():
                             quarter_col = col
-                        elif "deduction" in col.lower():
+                        elif "deduction" in str(col).lower():
                             deductions_col = col
-                        elif "net" in col.lower():
+                        elif "net" in str(col).lower():
                             net_amount_col = col
                     
                     # If still not found, use positions
@@ -201,6 +218,18 @@ if uploaded_file is not None:
                     st.write(f"Using '{month_col}' for Month")
                     st.write(f"Using '{quarter_col}' for Quarter")
                     st.write(f"Using '{bh_col}' for Business Head")
+                    
+                    # Check if Month M column exists
+                    if month_col not in billbook_df.columns:
+                        # Try looking for alternatives
+                        month_alternatives = [col for col in billbook_df.columns if "month" in str(col).lower()]
+                        if month_alternatives:
+                            month_col = month_alternatives[0]
+                            st.write(f"Using alternative month column: '{month_col}'")
+                        else:
+                            # If still not found, use the position-based approach
+                            month_col = billbook_df.columns[8]  # CU is typically ninth column in selected range
+                            st.write(f"Using position-based month column: '{month_col}'")
                     
                     # Time period selector
                     time_period = st.radio("Select Time Period", ["Monthly", "Quarterly"], horizontal=True)
@@ -242,7 +271,13 @@ if uploaded_file is not None:
                             markers=True,
                             color_discrete_sequence=["#9b59b6"]
                         )
-                        fig3.update_layout(xaxis_title=x_axis, yaxis_title="Billed Amount")
+                        fig3.update_layout(
+                            xaxis_title=x_axis, 
+                            yaxis_title="Billed Amount",
+                            yaxis=dict(
+                                tickprefix="₹"
+                            )
+                        )
                         st.plotly_chart(fig3, use_container_width=True)
                     
                     with col2:
@@ -257,7 +292,13 @@ if uploaded_file is not None:
                             title="Top 10 Consultants by Billed Amount",
                             color_discrete_sequence=["#f39c12"]
                         )
-                        fig4.update_layout(xaxis_title="Consultant", yaxis_title="Billed Amount")
+                        fig4.update_layout(
+                            xaxis_title="Consultant", 
+                            yaxis_title="Billed Amount",
+                            yaxis=dict(
+                                tickprefix="₹"
+                            )
+                        )
                         st.plotly_chart(fig4, use_container_width=True)
                     
                     # Summary metrics
@@ -266,15 +307,15 @@ if uploaded_file is not None:
                     
                     with metric1:
                         total_billed = filtered_billbook_df[billed_amount_col].sum()
-                        st.metric("Total Billed Amount", f"${total_billed:,.2f}")
+                        st.metric("Total Billed Amount", f"₹{total_billed:,.2f}")
                     
                     with metric2:
                         total_deductions = filtered_billbook_df[deductions_col].sum()
-                        st.metric("Total Deductions", f"${total_deductions:,.2f}")
+                        st.metric("Total Deductions", f"₹{total_deductions:,.2f}")
                     
                     with metric3:
                         total_net = filtered_billbook_df[net_amount_col].sum()
-                        st.metric("Total Net Amount", f"${total_net:,.2f}")
+                        st.metric("Total Net Amount", f"₹{total_net:,.2f}")
                 
                 except Exception as e:
                     st.error(f"Error in BillBook Analysis: {e}")
@@ -310,7 +351,7 @@ else:
     - **CR**: Deductions
     - **CS**: Net Amount
     - **CT**: Quarter
-    - **CU**: month
+    - **CU**: Month M
     - **CV**: Business Head
     - **CW**: Team Size
     """)
